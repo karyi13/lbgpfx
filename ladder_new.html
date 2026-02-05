@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>连板天梯</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; padding: 20px; color: #fff; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { text-align: center; padding: 20px 0 40px; }
+        .header h1 { font-size: 2.5rem; background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 10px; }
+        .header .subtitle { color: #8892b0; font-size: 1rem; }
+        .info-bar { background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 15px 25px; margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; border: 1px solid rgba(255, 255, 255, 0.1); }
+        .info-item { display: flex; align-items: center; gap: 8px; }
+        .info-label { color: #8892b0; font-size: 0.9rem; }
+        .info-value { color: #fff; font-weight: 600; font-size: 1.1rem; }
+        .info-value.red { background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .info-value.green { color: #64ffda; }
+        .info-value.orange { color: #ffb86c; }
+        .controls { background: rgba(255, 255, 255, 0.05); border-radius: 12px; padding: 15px 25px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; border: 1px solid rgba(255, 255, 255, 0.1); }
+        .date-select { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 8px; padding: 10px 15px; color: #fff; font-size: 1rem; cursor: pointer; }
+        .date-select:focus { outline: none; border-color: #f5576c; }
+        .date-select option { background: #1a1a2e; color: #fff; }
+        .ladder { display: grid; gap: 15px; }
+        .tier { background: rgba(255, 255, 255, 0.05); border-radius: 12px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.1); }
+        .tier-header { background: linear-gradient(90deg, rgba(245, 87, 108, 0.2) 0%, rgba(240, 147, 251, 0.2) 100%); padding: 12px 20px; display: flex; align-items: center; gap: 10px; }
+        .tier-title { font-size: 1.2rem; font-weight: 700; background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .tier-badge { background: rgba(245, 87, 108, 0.3); padding: 3px 10px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; }
+        .tier-count { margin-left: auto; color: #8892b0; }
+        .tier-content { padding: 15px; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+        .stock-card { background: rgba(255, 255, 255, 0.03); border-radius: 10px; padding: 15px; border: 1px solid rgba(255, 255, 255, 0.05); transition: all 0.2s ease; cursor: pointer; }
+        .stock-card:hover { transform: translateY(-2px); border-color: rgba(245, 87, 108, 0.5); background: rgba(255, 255, 255, 0.05); }
+        .stock-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+        .stock-name { font-size: 1.1rem; font-weight: 600; color: #fff; }
+        .stock-code { color: #8892b0; font-size: 0.85rem; }
+        .lbc-badge { background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%); padding: 4px 12px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; }
+        .stock-info { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .info-pill { background: rgba(255, 255, 255, 0.05); padding: 6px 10px; border-radius: 6px; }
+        .info-pill-label { color: #8892b0; font-size: 0.7rem; }
+        .info-pill-value { color: #fff; font-size: 0.9rem; font-weight: 600; }
+        .stock-footer { margin-top: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .industry { color: #8892b0; font-size: 0.8rem; }
+        .stock-time { background: rgba(245, 87, 108, 0.2); color: #f5576c; padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+        .empty { color: #8892b0; text-align: center; padding: 40px; font-size: 1rem; }
+        .loading { display: flex; justify-content: center; align-items: center; padding: 60px; color: #8892b0; }
+        .spinner { width: 40px; height: 40px; border: 3px solid rgba(245, 87, 108, 0.2); border-top-color: #f5576c; border-radius: 50%; animation: spin 1s linear infinite; margin-right: 15px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px); justify-content: center; align-items: center; z-index: 1000; }
+        .modal.active { display: flex; }
+        .modal-content { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); border-radius: 16px; padding: 25px; max-width: 500px; width: 90%; border: 1px solid rgba(245, 87, 108, 0.3); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+        .modal-title { font-size: 1.3rem; font-weight: 700; background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .modal-close { cursor: pointer; font-size: 28px; color: #8892b0; transition: color 0.2s; }
+        .modal-close:hover { color: #f5576c; }
+        .modal-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .modal-row:last-child { border-bottom: none; }
+        .modal-label { color: #8892b0; font-size: 0.9rem; }
+        .modal-value { font-weight: 600; color: #fff; }
+        .modal-value.highlight { background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>连板天梯</h1>
+            <div class="subtitle">每日涨停股票连板梯队展示</div>
+        </div>
+        <div class="controls">
+            <label style="color: #8892b0;">选择日期：</label>
+            <select id="dateSelect" class="date-select" onchange="selectDate()"><option value="">加载中...</option></select>
+        </div>
+        <div class="info-bar">
+            <div class="info-item"><span class="info-label">日期</span><span class="info-value" id="infoDate">-</span></div>
+            <div class="info-item"><span class="info-label">涨停总数</span><span class="info-value red" id="infoTotal">-</span></div>
+            <div class="info-item"><span class="info-label">最高连板</span><span class="info-value" id="infoMaxLbc">-</span></div>
+            <div class="info-item"><span class="info-label">炸板率</span><span class="info-value orange" id="infoExplodeRate">-</span></div>
+            <div class="info-item"><span class="info-label">跌停数</span><span class="info-value green" id="infoDtCount">-</span></div>
+        </div>
+        <div id="ladderContent" class="ladder"><div class="loading"><div class="spinner"></div><span>加载数据中...</span></div></div>
+    </div>
+    <div class="modal" id="stockModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle">股票详情</div>
+                <div class="modal-close" onclick="closeModal()">×</div>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+    <script src="ladder_data.js"></script>
+    <script>
+        let current = "";
+        function fmtTime(t){return t&&t.length>=6? t.substring(0,2)+":"+t.substring(2,4)+":"+t.substring(4,6):t||"-";}
+        function init(){
+            const ds = getDateList();
+            const s = document.getElementById("dateSelect");
+            if(!ds.length){ s.innerHTML = "<option>暂无数据</option>"; return; }
+            s.innerHTML = ds.map(d => "<option>"+d+"</option>").join("");
+            if(ds.length){ current = ds[0]; s.value = current; selectDate(); }
+        }
+        function selectDate(){
+            current = document.getElementById("dateSelect").value;
+            if(!current) return;
+            const lu = getLimitUpData(current), ld = getLimitDownData(current), ex = getExplodeData(current);
+            document.getElementById("infoDate").textContent = current;
+            document.getElementById("infoTotal").textContent = lu.length;
+            let max = 0; lu.forEach(x => { if(x.lbc && x.lbc > max) max = x.lbc; });
+            document.getElementById("infoMaxLbc").textContent = max + "板";
+            const tot = lu.length + ex.length;
+            document.getElementById("infoExplodeRate").textContent = tot ? ((ex.length/tot)*100).toFixed(1)+"%" : "0%";
+            document.getElementById("infoDtCount").textContent = ld.length;
+            if(!lu.length){ document.getElementById("ladderContent").innerHTML = "<div class='empty'>该日期暂无涨停数据</div>"; return; }
+            const lad = {}; lu.forEach(x => { const c = x.lbc||1; if(!lad[c]) lad[c]=[]; lad[c].push(x); });
+            const ks = Object.keys(lad).sort((a,b)=>b-a).map(Number);
+            let ht = "";
+            ks.forEach(k => {
+                const stocks = lad[k];
+                const lbl = {1:"首板",2:"二板",3:"三板",4:"四板",5:"五板",6:"六板",7:"七板",8:"八板+"}[k] || k+"板";
+                ht += "<div class='tier'><div class='tier-header'><span class='tier-title'>"+k+"板</span><span class='tier-badge'>"+lbl+"</span><span class='tier-count'>"+stocks.length+"只</span></div><div class='tier-content'>";
+                stocks.forEach(s => {
+                    ht += "<div class='stock-card' onclick="show("+'"'+s.dm+'"'+")"><div class='stock-header'><div><div class='stock-name'>"+s.mc+"</div><div class='stock-code'>"+s.dm+"</div></div><span class='lbc-badge'>"+(s.lbc||1)+"板</span></div><div class='stock-info'><div class='info-pill'><div class='info-pill-label'>价格</div><div class='info-pill-value'>"+(s.p?s.p.toFixed(2):"-")+"</div></div><div class='info-pill'><div class='info-pill-label'>涨幅</div><div class='info-pill-value'>"+(s.zf?s.zf.toFixed(2):"-")+"%</div></div><div class='info-pill'><div class='info-pill-label'>成交额</div><div class='info-pill-value'>"+(s.cje?(s.cje/10000).toFixed(0)+"万":"-")+"</div></div></div><div class='stock-footer'><span class='industry'>"+(s.hy||"-")+"</span><span class='stock-time'>"+fmtTime(s.fbt)+"</span></div></div>";
+                });
+                ht += "</div></div>";
+            });
+            document.getElementById("ladderContent").innerHTML = ht;
+        }
+        function show(code){
+            const s = getLimitUpData(current).find(x => x.dm === code);
+            if(!s) return;
+            document.getElementById("modalTitle").textContent = s.mc;
+            document.getElementById("modalBody").innerHTML = "<div class='modal-row'><span class='modal-label'>股票代码</span><span class='modal-value'>"+s.dm+"</span></div><div class='modal-row'><span class='modal-label'>连板天数</span><span class='modal-value highlight'>"+(s.lbc||1)+"板</span></div><div class='modal-row'><span class='modal-label'>当前价格</span><span class='modal-value'>"+(s.p?s.p.toFixed(2):"-")+"元</span></div><div class='modal-row'><span class='modal-label'>涨跌幅</span><span class='modal-value'>"+(s.zf?s.zf.toFixed(2):"-")+"%</span></div><div class='modal-row'><span class='modal-label'>成交额</span><span class='modal-value'>"+(s.cje?(s.cje/10000).toFixed(0)+"万":"-")+"</span></div><div class='modal-row'><span class='modal-label'>换手率</span><span class='modal-value'>"+(s.hs?s.hs.toFixed(2)+"%":"-")+"</span></div><div class='modal-row'><span class='modal-label'>主力净额</span><span class='modal-value'>"+(s.zj?(s.zj/10000).toFixed(0)+"万":"-")+"</span></div><div class='modal-row'><span class='modal-label'>所属行业</span><span class='modal-value'>"+(s.hy||"-")+"</span></div><div class='modal-row'><span class='modal-label'>首次封板</span><span class='modal-value'>"+fmtTime(s.fbt)+"</span></div><div class='modal-row'><span class='modal-label'>最后封板</span><span class='modal-value'>"+fmtTime(s.lbt)+"</span></div>";
+            document.getElementById("stockModal").classList.add("active");
+        }
+        function closeModal(){ document.getElementById("stockModal").classList.remove("active"); }
+        document.getElementById("stockModal").addEventListener("click",function(e){if(e.target.id==="stockModal")closeModal();});
+        init();
+    </script>
+</body>
+</html>

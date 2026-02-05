@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+logs/
+reports/
+data/
+.env
+.claude/
+*.log
+*.js
+# Exclude HTML files except ladder_new.html
+*.html
+!ladder_new.html
