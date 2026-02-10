@@ -4,17 +4,28 @@ K线数据API服务
 使用 pytdx 从通达信服务器获取A股K线数据
 """
 
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from datetime import datetime, timedelta
 import pytdx
 from pytdx.hq import TdxHq_API
 import logging
+import os
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=None)
+# 获取脚本所在目录作为静态文件根目录
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# 添加 CORS 头部支持跨域请求
+@app.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Methods'] = 'GET,POST,OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    return response
 
 # 通达信服务器列表（按延迟排序，从低到高）
 PYTDX_SERVERS = [
@@ -59,7 +70,7 @@ def connect_best_server():
     尝试连接可用的通达信服务器
     返回: (api, server_info) 或 (None, None)
     """
-    for server inPYTDX_SERVERS:
+    for server in PYTDX_SERVERS:
         ip, port = server
         api = TdxHq_API()
         try:
@@ -72,7 +83,7 @@ def connect_best_server():
     return None, None
 
 
-@app.route('/api/kline/<code>', methods=['GET'])
+@app.route('/api/kline/<code>', methods=['GET', 'OPTIONS'])
 def get_kline(code):
     """
     获取股票K线数据
@@ -90,6 +101,10 @@ def get_kline(code):
             ]
         }
     """
+    # 处理 CORS 预检请求
+    if request.method == 'OPTIONS':
+        return ('', 204)
+
     try:
         # 解析参数
         days = request.args.get('days', 60, type=int)
@@ -116,12 +131,12 @@ def get_kline(code):
             # 计算要获取的数量（多取一些确保覆盖）
             fetch_count = min(800, days + 50)  # 通达信单次最多约800条
 
-            data = api.get_k_line(
+            data = api.get_k_data(
                 market=market,
                 code=pure_code,
                 start=0,
                 count=fetch_count,
-                period=period
+                period=0  # 0=daily, 1=weekly, 2=monthly
             )
 
             if not data:
@@ -185,6 +200,24 @@ def get_kline(code):
 def health_check():
     """健康检查端点"""
     return jsonify({"status": "ok", "timestamp": datetime.now().isoformat()})
+
+
+@app.route('/')
+def index():
+    """重定向到天梯图首页"""
+    return send_from_directory(BASE_DIR, 'ladder.html')
+
+
+@app.route('/ladder.html')
+def ladder_page():
+    """天梯图页面"""
+    return send_from_directory(BASE_DIR, 'ladder.html')
+
+
+@app.route('/kline.html')
+def kline_page():
+    """K线图页面"""
+    return send_from_directory(BASE_DIR, 'kline.html')
 
 
 if __name__ == '__main__':
