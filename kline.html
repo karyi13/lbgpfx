@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K线图 - <span id="stockName">加载中...</span></title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .header h1 {
+            font-size: 1.8rem;
+            background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .stock-code {
+            color: #8892b0;
+            font-size: 1.2rem;
+        }
+        .error-msg {
+            background: rgba(245,87,108,0.2);
+            border: 1px solid #f5576c;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 40px;
+        }
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #8892b0;
+        }
+        .loading::after {
+            content: "...";
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+        @keyframes dots {
+            0%, 20% { content: ""; }
+            40% { content: "."; }
+            60% { content: ".."; }
+            80%, 100% { content: "..."; }
+        }
+        #chart {
+            width: 100%;
+            height: 700px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .info-bar {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .info-item {
+            display: flex;
+            gap: 8px;
+        }
+        .info-label { color: #8892b0; font-size: 0.9rem; }
+        .info-value { color: #fff; font-weight: 600; font-size: 1.1rem; }
+        .info-value.up { color: #f5576c; }
+        .info-value.down { color: #64ffda; }
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .btn-back {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            padding: 10px 20px;
+            color: #fff;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+        .btn-back:hover {
+            background: rgba(245,87,108,0.3);
+            border-color: #f5576c;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="ladder_fixed.html" class="btn-back">← 返回天梯图</a>
+            <div>
+                <h1 id="stockName">加载中...</h1>
+                <div class="stock-code" id="stockCode">-</div>
+            </div>
+        </div>
+
+        <div class="info-bar" id="infoBar" style="display:none;">
+            <div class="info-item">
+                <span class="info-label">最新价</span>
+                <span class="info-value" id="latestClose">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">涨跌幅</span>
+                <span class="info-value" id="changePct">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">最高</span>
+                <span class="info-value" id="high">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">最低</span>
+                <span class="info-value" id="low">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">成交量</span>
+                <span class="info-value" id="volume">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">成交额</span>
+                <span class="info-value" id="amount">-</span>
+            </div>
+        </div>
+
+        <div class="loading" id="loading">正在加载K线数据</div>
+        <div id="chart" style="display:none;"></div>
+        <div class="error-msg" id="errorMsg" style="display:none;"></div>
+    </div>
+
+    <script>
+        // 从URL获取股票代码
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const name = urlParams.get('name') || '';
+
+        document.getElementById('stockName').textContent = name || code || '-';
+        document.getElementById('stockCode').textContent = code || '-';
+
+        if (!code) {
+            showError('请在URL中提供股票代码参数');
+        } else {
+            loadKlineData(code);
+        }
+
+        async function loadKlineData(code) {
+            try {
+                const response = await fetch(`/api/kline/${encodeURIComponent(code)}?days=60`);
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || '加载失败');
+                }
+
+                if (!result.data || result.data.length === 0) {
+                    showError('未找到该股票的K线数据');
+                    return;
+                }
+
+                displayChart(result);
+            } catch (err) {
+                console.error('K线数据加载失败:', err);
+                showError(`加载失败: ${err.message}`);
+            }
+        }
+
+        function displayChart(result) {
+            const { code, name, data } = result;
+
+            // 更新页面标题和基本信息
+            document.title = `K线图 - ${name || code}`;
+            document.getElementById('stockName').textContent = name || code;
+            document.getElementById('stockCode').textContent = code;
+
+            // 显示最新数据信息
+            if (data.length > 0) {
+                const latest = data[0]; // 数据已降序，第一条是最新
+                const prevClose = data[1]?.close || 0;
+                const change = latest.close - prevClose;
+                const changePct = prevClose > 0 ? (change / prevClose * 100).toFixed(2) : 0;
+                const isUp = change >= 0;
+
+                document.getElementById('latestClose').textContent = latest.close.toFixed(2);
+                const changeEl = document.getElementById('changePct');
+                changeEl.textContent = `${isUp ? '+' : ''}${changePct}%`;
+                changeEl.className = 'info-value ' + (isUp ? 'up' : 'down');
+                document.getElementById('high').textContent = latest.high.toFixed(2);
+                document.getElementById('low').textContent = latest.low.toFixed(2);
+                document.getElementById('volume').textContent = (latest.vol / 100).toFixed(0) + '手';
+                document.getElementById('amount').textContent = (latest.amount / 10000).toFixed(0) + '万';
+
+                document.getElementById('infoBar').style.display = 'flex';
+            }
+
+            // 准备K线数据
+            const traceCandlestick = {
+                type: 'candlestick',
+                x: data.map(d => d.date),
+                open: data.map(d => d.open),
+                high: data.map(d => d.high),
+                low: data.map(d => d.low),
+                close: data.map(d => d.close),
+                name: 'K线',
+                increasing: { line: { color: '#f5576c' }, fillcolor: 'rgba(245,87,108,0.3)' },
+                decreasing: { line: { color: '#64ffda' }, fillcolor: 'rgba(100,255,218,0.3)' },
+            };
+
+            // 计算均线
+            const closes = data.map(d => d.close).reverse(); // 反转，让旧数据在前
+            const dates = data.map(d => d.date).reverse();
+
+            function calculateMA(period) {
+                const ma = [];
+                for (let i = 0; i < closes.length; i++) {
+                    if (i < period - 1) {
+                        ma.push(null);
+                    } else {
+                        let sum = 0;
+                        for (let j = 0; j < period; j++) {
+                            sum += closes[i - j];
+                        }
+                        ma.push(sum / period);
+                    }
+                }
+                return ma;
+            }
+
+            const ma5 = calculateMA(5);
+            const ma10 = calculateMA(10);
+            const ma20 = calculateMA(20);
+
+            const traceMA5 = {
+                type: 'scatter',
+                mode: 'lines',
+                x: dates,
+                y: ma5,
+                name: 'MA5',
+                line: { color: '#ffa726', width: 1 }
+            };
+            const traceMA10 = {
+                type: 'scatter',
+                mode: 'lines',
+                x: dates,
+                y: ma10,
+                name: 'MA10',
+                line: { color: '#42a5f5', width: 1 }
+            };
+            const traceMA20 = {
+                type: 'scatter',
+                mode: 'lines',
+                x: dates,
+                y: ma20,
+                name: 'MA20',
+                line: { color: '#ab47bc', width: 1 }
+            };
+
+            // 成交量柱状图
+            const colors = data.map(d => d.close >= d.open ? 'rgba(245,87,108,0.5)' : 'rgba(100,255,218,0.5)');
+            const traceVolume = {
+                type: 'bar',
+                x: data.map(d => d.date),
+                y: data.map(d => d.vol / 100), // 从手转为实际股数（除以100）
+                name: '成交量',
+                marker: { color: colors },
+                yaxis: 'y2',
+            };
+
+            const layout = {
+                title: {
+                    text: `${name || code} - K线图`,
+                    font: { size: 18, color: '#fff' }
+                },
+                paper_bgcolor: 'rgba(26,26,46,0)',
+                plot_bgcolor: 'rgba(22,33,62,0.5)',
+                xaxis: {
+                    title: '日期',
+                    type: 'date',
+                    gridcolor: 'rgba(255,255,255,0.1)',
+                    tickfont: { color: '#8892b0' },
+                    rangeslider: { visible: false }
+                },
+                yaxis: {
+                    title: '价格',
+                    gridcolor: 'rgba(255,255,255,0.1)',
+                    tickfont: { color: '#8892b0' },
+                    side: 'left'
+                },
+                yaxis2: {
+                    title: '成交量',
+                    overlaying: 'y',
+                    side: 'right',
+                    gridcolor: 'rgba(255,255,255,0.1)',
+                    tickfont: { color: '#8892b0' },
+                    showgrid: false
+                },
+                legend: {
+                    x: 0,
+                    y: 1,
+                    bgcolor: 'rgba(0,0,0,0.2)',
+                    bordercolor: 'rgba(255,255,255,0.2)',
+                    borderwidth: 1,
+                    font: { color: '#fff' }
+                },
+                margin: { l: 60, r: 80, t: 60, b: 60 },
+            };
+
+            const config = {
+                responsive: true,
+                displayModeBar: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['lasso2d', 'select2d']
+            };
+
+            Plotly.newPlot('chart', [traceCandlestick, traceMA5, traceMA10, traceMA20, traceVolume], layout, config);
+
+            // 隐藏加载，显示图表
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('chart').style.display = 'block';
+        }
+
+        function showError(msg) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('errorMsg').textContent = msg;
+            document.getElementById('errorMsg').style.display = 'block';
+        }
+    </script>
+</body>
+</html>

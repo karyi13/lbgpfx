@@ -10,7 +10,9 @@ data/
 .claude/
 *.log
 *.js
-# Exclude HTML files except ladder_new.html and ladder_fixed.html
+# Exclude HTML files except specific ones
 *.html
-!ladder_new.html
+!ladder.html
 !ladder_fixed.html
+!ladder_new.html
+!kline.html
