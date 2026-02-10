@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>连板天梯</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; padding: 20px; color: #fff; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { text-align: center; padding: 20px 0 40px; }
+        .header h1 { font-size: 2.5rem; background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .info-bar { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 15px 25px; margin-bottom: 30px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px; border: 1px solid rgba(255,255,255,0.1); }
+        .info-item { display: flex; gap: 8px; }
+        .info-label { color: #8892b0; font-size: 0.9rem; }
+        .info-value { color: #fff; font-weight: 600; font-size: 1.1rem; }
+        .info-value.red { color: #f5576c; }
+        .info-value.green { color: #64ffda; }
+        .info-value.orange { color: #ffb86c; }
+        .controls { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 15px 25px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,0.1); flex-wrap: wrap; }
+        .btn-nav { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 10px 20px; color: #fff; cursor: pointer; transition: all 0.2s; font-size: 14px; }
+        .btn-nav:hover { background: rgba(245,87,108,0.3); border-color: #f5576c; }
+        .btn-nav:disabled { opacity: 0.5; cursor: not-allowed; }
+        .date-select-wrapper { flex: 1; min-width: 180px; }
+        .date-select { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 10px 15px; color: #fff; font-size: 14px; width: 100%; cursor: pointer; }
+        .date-select:focus { outline: none; border-color: #f5576c; }
+        .date-select option { background: #1a1a2e; color: #fff; }
+        .ladder { display: grid; gap: 15px; }
+        .tier { background: rgba(255,255,255,0.05); border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+        .tier-header { background: linear-gradient(90deg, rgba(245,87,108,0.2), rgba(240,147,251,0.2)); padding: 12px 20px; display: flex; align-items: center; gap: 10px; }
+        .tier-title { font-size: 1.2rem; font-weight: 700; }
+        .tier-count { margin-left: auto; color: #8892b0; }
+        .tier-content { padding: 15px; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+        .stock-card { background: rgba(255,255,255,0.03); border-radius: 10px; padding: 15px; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: all 0.2s; }
+        .stock-card:hover { background: rgba(255,255,255,0.05); transform: translateY(-2px); }
+        .stock-name { font-weight: 600; }
+        .stock-code { color: #8892b0; font-size: 12px; }
+        .lbc-badge { background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; margin-left: 8px; }
+        .stock-info { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+        .info-pill { background: rgba(255,255,255,0.05); padding: 6px 10px; border-radius: 6px; }
+        .info-label { color: #8892b0; font-size: 11px; }
+        .info-value { color: #fff; font-size: 13px; font-weight: 600; }
+        .stock-footer { margin-top: 10px; display: flex; justify-content: space-between; font-size: 11px; }
+        .industry { color: #8892b0; }
+        .stock-time { color: #f5576c; }
+        .empty { color: #8892b0; text-align: center; padding: 40px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>连板天梯</h1>
+        </div>
+        <div class="controls">
+            <button class="btn-nav" id="prevBtn" onclick="changeDate(-1)">◀ 上一日</button>
+            <div class="date-select-wrapper">
+                <select id="dateSelect" class="date-select" onchange="handleChange(this.value)"><option>加载中...</option></select>
+            </div>
+            <button class="btn-nav" id="nextBtn" onclick="changeDate(1)">下一日 ▶</button>
+        </div>
+        <div class="info-bar">
+            <div class="info-item"><span class="info-label">日期</span><span class="info-value" id="infoDate">-</span></div>
+            <div class="info-item"><span class="info-label">涨停总数</span><span class="info-value red" id="infoTotal">-</span></div>
+            <div class="info-item"><span class="info-label">最高连板</span><span class="info-value" id="infoMaxLbc">-</span></div>
+            <div class="info-item"><span class="info-label">炸板率</span><span class="info-value orange" id="infoExplodeRate">-</span></div>
+            <div class="info-item"><span class="info-label">跌停数</span><span class="info-value green" id="infoDtCount">-</span></div>
+        </div>
+        <div id="ladderContent" class="ladder">加载数据中...</div>
+    </div>
+    <script src="ladder_data.js"></script>
+    <script>
+        let dates = [];
+        let currentIndex = 0;
+
+        function fmtTime(t){
+            if(!t) return "-";
+            // 如果已经包含冒号，直接返回
+            if(t.includes(":")) return t;
+            // 如果是6位纯数字，格式化为 HH:MM:SS
+            if(t.length>=6) return t.substring(0,2)+":"+t.substring(2,4)+":"+t.substring(4,6);
+            return t;
+        }
+
+        function init(){
+            dates = getDateList();
+            currentIndex = 0;
+
+            const s = document.getElementById("dateSelect");
+            s.innerHTML = dates.map((d, i) => "<option value='"+i+"'>"+d+"</option>").join("");
+
+            if(dates.length){ loadData(0); }
+            updateNavButtons();
+        }
+
+        function handleChange(index) {
+            currentIndex = parseInt(index);
+            loadData(currentIndex);
+            updateNavButtons();
+        }
+
+        function changeDate(delta) {
+            currentIndex += delta;
+            if(currentIndex < 0) currentIndex = 0;
+            if(currentIndex >= dates.length) currentIndex = dates.length - 1;
+            loadData(currentIndex);
+            updateNavButtons();
+        }
+
+        function updateNavButtons() {
+            document.getElementById("prevBtn").disabled = currentIndex <= 0;
+            document.getElementById("nextBtn").disabled = currentIndex >= dates.length - 1;
+        }
+
+        function loadData(index){
+            const date = dates[index];
+            const lu = getLimitUpData(date);
+            const ld = getLimitDownData(date);
+            const ex = getExplodeData(date);
+
+            document.getElementById("dateSelect").value = index;
+            document.getElementById("infoDate").textContent = date;
+            document.getElementById("infoTotal").textContent = lu.length;
+            let max = 0; lu.forEach(x => { if(x.lbc && x.lbc > max) max = x.lbc; });
+            document.getElementById("infoMaxLbc").textContent = max + "板";
+            const tot = lu.length + ex.length;
+            document.getElementById("infoExplodeRate").textContent = tot ? ((ex.length/tot)*100).toFixed(1)+"%" : "0%";
+            document.getElementById("infoDtCount").textContent = ld.length;
+
+            if(!lu.length){
+                document.getElementById("ladderContent").innerHTML = "<div class='empty'>该日期暂无涨停数据</div>";
+                return;
+            }
+
+            const lad={}; lu.forEach(x=>{const c=x.lbc||1;if(!lad[c])lad[c]=[];lad[c].push(x);});
+            const ks=Object.keys(lad).sort((a,b)=>b-a).map(Number);
+
+            let html="<div class='ladder'>";
+            ks.forEach(k=>{
+                const stocks=lad[k];
+                html+="<div class='tier'><div class='tier-header'><span class='tier-title'>"+k+"板</span><span class='tier-count'>"+stocks.length+"只</span></div><div class='tier-content'>";
+                stocks.forEach(s=>{
+                    html+="<div class='stock-card'><div><span class='stock-name'>"+s.mc+"</span> <span class='stock-code'>"+s.dm+"</span><span class='lbc-badge'>"+(s.lbc||1)+"板</span></div><div class='stock-info'><div class='info-pill'><span class='info-label'>价格</span><span class='info-value'>"+(s.p?s.p.toFixed(2):"-")+"</span></div><div class='info-pill'><span class='info-label'>涨幅</span><span class='info-value'>"+(s.zf?s.zf.toFixed(2):"-")+"%</span></div><div class='info-pill'><span class='info-label'>换手</span><span class='info-value'>"+(s.hs?s.hs.toFixed(2):"-")+"%</span></div><div class='info-pill'><span class='info-label'>成交</span><span class='info-value'>"+(s.cje?(s.cje/10000).toFixed(0)+"万":"-")+"</span></div></div><div class='stock-info'><div class='info-pill'><span class='info-label'>首封</span><span class='info-value'>"+fmtTime(s.fbt)+"</span></div><div class='info-pill'><span class='info-label'>末封</span><span class='info-value'>"+fmtTime(s.lbt)+"</span></div><div class='info-pill'><span class='info-label'>封板额</span><span class='info-value'>"+(s.zj?(s.zj/10000).toFixed(0)+"万":"-")+"</span></div><div class='info-pill'><span class='info-label'>流通值</span><span class='info-value'>"+(s.lt?(s.lt/100000000).toFixed(0)+"亿":"-")+"</span></div></div><div class='stock-footer'><span class='industry'>"+(s.hy||"-")+"</span><span class='stock-time'>"+(s.zbc!=undefined? s.zbc+"炸":"-")+"</span></div></div>";
+                });
+                html+="</div></div>";
+            });
+            html+="</div>";
+            document.getElementById("ladderContent").innerHTML = html;
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
