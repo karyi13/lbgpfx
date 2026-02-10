@@ -52,11 +52,11 @@
             <h1>连板天梯</h1>
         </div>
         <div class="controls">
-            <button class="btn-nav" id="prevBtn" onclick="changeDate(-1)">◀ 上一日</button>
+            <button class="btn-nav" id="prevBtn" onclick="changeDate(1)">◀ 上一日</button>
             <div class="date-select-wrapper">
                 <select id="dateSelect" class="date-select" onchange="handleChange(this.value)"><option>加载中...</option></select>
             </div>
-            <button class="btn-nav" id="nextBtn" onclick="changeDate(1)">下一日 ▶</button>
+            <button class="btn-nav" id="nextBtn" onclick="changeDate(-1)">下一日 ▶</button>
         </div>
         <div class="info-bar">
             <div class="info-item"><span class="info-label">日期</span><span class="info-value" id="infoDate">-</span></div>
