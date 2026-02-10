@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 """
 K线数据API服务
-使用 pytdx 从通达信服务器获取A股K线数据
+使用 AKShare 获取A股K线数据（稳定可靠）
 """
 
 from flask import Flask, jsonify, request, send_from_directory
 from datetime import datetime, timedelta
-import pytdx
-from pytdx.hq import TdxHq_API
+import akshare as ak
 import logging
 import os
+import pandas as pd
 
 # 配置日志
 logging.basicConfig(level=logging.INFO)
@@ -19,68 +19,80 @@ app = Flask(__name__, static_folder=None)
 # 获取脚本所在目录作为静态文件根目录
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# 添加 CORS 头部支持跨域请求
-@app.after_request
-def add_cors_headers(response):
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    response.headers['Access-Control-Allow-Methods'] = 'GET,POST,OPTIONS'
-    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-    return response
-
-# 通达信服务器列表（按延迟排序，从低到高）
-PYTDX_SERVERS = [
-    ('180.153.18.170', 7709),  # 延迟: ~0.14s
-    ('218.75.126.9', 7709),    # 延迟: ~0.16s
-    ('60.191.117.167', 7709),  # 延迟: ~0.16s
-    ('60.12.136.250', 7709),   # 延迟: ~0.17s
-]
-
-#  market code mapping: 上海=0, 深圳=1
-MARKET_MAP = {
-    'sh': 0,
-    'sz': 1,
-}
-
 
 def normalize_stock_code(code):
     """
-    标准化股票代码
-    输入: sh603316 或 603316 或 sz000001
-    输出: (market_code, pure_code) -> (0, '603316') or (1, '000001')
+    标准化股票代码为 AKShare 格式
+    去掉市场前缀，保留6位数字代码
     """
-    code = str(code).strip().lower()
-
-    # 如果包含 sh/sz 前缀
-    if code.startswith('sh'):
-        return 0, code[2:]
-    elif code.startswith('sz'):
-        return 1, code[2:]
-    else:
-        # 无前缀，根据首位数字判断
-        if code.startswith('6'):
-            return 0, code
-        elif code.startswith('0') or code.startswith('3'):
-            return 1, code
-        else:
-            raise ValueError(f"无法识别的股票代码格式: {code}")
+    code = str(code).strip()
+    # 去掉任何市场前缀（sh/sz/SH/SZ）
+    if code.lower().startswith(('sh', 'sz')):
+        code = code[2:]
+    return code
 
 
-def connect_best_server():
+def fetch_kline_akshare(code, days=60):
     """
-    尝试连接可用的通达信服务器
-    返回: (api, server_info) 或 (None, None)
+    使用 AKShare 获取K线数据
+    返回: DataFrame with columns: date, open, high, low, close, volume
     """
-    for server in PYTDX_SERVERS:
-        ip, port = server
-        api = TdxHq_API()
-        try:
-            if api.connect(ip, port):
-                logger.info(f"成功连接服务器: {ip}:{port}")
-                return api, server
-        except Exception as e:
-            logger.warning(f"连接服务器 {ip}:{port} 失败: {e}")
-            continue
-    return None, None
+    try:
+        symbol = normalize_stock_code(code)
+
+        # 计算日期范围
+        end_date = datetime.now().strftime('%Y%m%d')
+        start_date = (datetime.now() - timedelta(days=int(days) * 2)).strftime('%Y%m%d')  # 多取一些避免节假日缺失
+
+        # 使用 stock_zh_a_hist 获取历史数据
+        # 注意：AKShare 需要股票带市场前缀（.sh 或 .sz）
+        market_prefix = 'sh' if symbol.startswith('6') else 'sz'
+        full_symbol = f"{market_prefix}{symbol}"
+
+        df = ak.stock_zh_a_hist(
+            symbol=full_symbol,
+            period="daily",
+            start_date=start_date,
+            end_date=end_date,
+            adjust=""  # 不复权
+        )
+
+        if df.empty:
+            return None
+
+        # 重命名列以匹配我们的格式
+        df = df.rename(columns={
+            '日期': 'date',
+            '开盘': 'open',
+            '收盘': 'close',
+            '最高': 'high',
+            '最低': 'low',
+            '成交量': 'vol',
+            '成交额': 'amount'
+        })
+
+        # 只保留需要的列
+        df = df[['date', 'open', 'high', 'low', 'close', 'vol', 'amount']].copy()
+
+        # 转换数据类型
+        df['date'] = pd.to_datetime(df['date']).dt.strftime('%Y-%m-%d')
+        for col in ['open', 'high', 'low', 'close', 'vol', 'amount']:
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+
+        # 排除停牌日（成交量为0或开盘=收盘=0）
+        df = df[df['vol'] > 0]
+
+        # 按日期降序排序
+        df = df.sort_values('date', ascending=False)
+
+        # 只返回指定天数
+        df = df.head(days)
+
+        return df
+
+    except Exception as e:
+        logger.error(f"AKShare 获取失败: {code}, 错误: {e}")
+        return None
 
 
 @app.route('/api/kline/<code>', methods=['GET', 'OPTIONS'])
@@ -90,13 +102,12 @@ def get_kline(code):
     参数:
         code: 股票代码 (如 sh603316, 603316)
         days: 获取天数 (默认 60)
-        period: 周期 (day/week/month, 默认 day)
     返回:
         {
             "code": "sh603316",
-            "name": "诚邦股份",
+            "name": "",
             "data": [
-                {"date": "2025-01-01", "open": 9.5, "high": 10.2, "low": 9.4, "close": 10.0, "vol": 123456},
+                {"date": "2025-01-01", "open": 9.5, "high": 10.2, "low": 9.4, "close": 10.0, "vol": 123456, "amount": 12345678},
                 ...
             ]
         }
@@ -106,80 +117,28 @@ def get_kline(code):
         return ('', 204)
 
     try:
-        # 解析参数
         days = request.args.get('days', 60, type=int)
-        period = request.args.get('period', 'day')
 
-        # 标准化代码
-        market, pure_code = normalize_stock_code(code)
+        # 使用 AKShare 获取数据
+        df = fetch_kline_akshare(code, days)
 
-        # 连接服务器
-        api, server = connect_best_server()
-        if api is None:
-            return jsonify({
-                "error": "无法连接通达信服务器",
-                "code": code,
-                "data": []
-            }), 503
-
-        try:
-            # 获取K线数据
-            # pytdx 参数: market, code, start, count, period
-            # 注意: start 是偏移量，count 是数量
-            # 为了方便，我们获取足够的数据然后按日期筛选
-
-            # 计算要获取的数量（多取一些确保覆盖）
-            fetch_count = min(800, days + 50)  # 通达信单次最多约800条
-
-            data = api.get_k_data(
-                market=market,
-                code=pure_code,
-                start=0,
-                count=fetch_count,
-                period=0  # 0=daily, 1=weekly, 2=monthly
-            )
-
-            if not data:
-                return jsonify({
-                    "code": code,
-                    "name": "",
-                    "data": [],
-                    "message": "未找到该股票数据"
-                })
-
-            # 转换数据格式
-            kline_data = []
-            for row in data:
-                # pytdx 返回: date, open, close, high, low, vol, amount
-                kline_data.append({
-                    "date": row.get('date', ''),  # 格式: YYYY-MM-DD
-                    "open": float(row.get('open', 0)),
-                    "close": float(row.get('close', 0)),
-                    "high": float(row.get('high', 0)),
-                    "low": float(row.get('low', 0)),
-                    "vol": int(row.get('vol', 0)),  # 成交量（手）
-                    "amount": float(row.get('amount', 0)),  # 成交额（元）
-                })
-
-            # 按日期降序排序，确保最新在前
-            kline_data.sort(key=lambda x: x['date'], reverse=True)
-
-            # 只返回指定天数
-            kline_data = kline_data[:days]
-
-            # 获取股票基本信息（从现有数据推测）
-            stock_name = ""
-            # TODO: 可以从本地JSON文件或另一个API获取股票名称
-
+        if df is None or df.empty:
             return jsonify({
                 "code": code,
-                "name": stock_name,
-                "data": kline_data,
-                "server": f"{server[0]}:{server[1]}"
+                "name": "",
+                "data": [],
+                "message": "未找到该股票数据（可能已退市或停牌）"
             })
 
-        finally:
-            api.disconnect()
+        # 转换为 JSON 格式
+        data = df.to_dict('records')
+
+        return jsonify({
+            "code": code,
+            "name": "",  # AKShare 返回的 name 在列中，暂不填充
+            "data": data,
+            "source": "akshare"
+        })
 
     except ValueError as e:
         return jsonify({
@@ -227,14 +186,6 @@ def static_files(filename):
 
 
 if __name__ == '__main__':
-    # 测试连接（可选）
-    logger.info("正在初始化K线数据服务...")
-    test_api, test_server = connect_best_server()
-    if test_api:
-        test_api.disconnect()
-        logger.info(f"已找到可用服务器，启动服务...")
-    else:
-        logger.warning("未找到可用服务器，服务可能无法正常工作")
-
-    # 启动Flask服务
+    logger.info("正在初始化K线数据服务（使用 AKShare）...")
+    logger.info("服务将运行在 http://127.0.0.1:5001")
     app.run(host='0.0.0.0', port=5001, debug=True)
