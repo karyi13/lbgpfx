@@ -220,6 +220,12 @@ def kline_page():
     return send_from_directory(BASE_DIR, 'kline.html')
 
 
+@app.route('/<path:filename>')
+def static_files(filename):
+    """提供其他静态文件"""
+    return send_from_directory(BASE_DIR, filename)
+
+
 if __name__ == '__main__':
     # 测试连接（可选）
     logger.info("正在初始化K线数据服务...")
