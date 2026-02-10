@@ -107,8 +107,8 @@
         }
 
         function updateNavButtons() {
-            document.getElementById("prevBtn").disabled = currentIndex <= 0;
-            document.getElementById("nextBtn").disabled = currentIndex >= dates.length - 1;
+            document.getElementById("prevBtn").disabled = currentIndex >= dates.length - 1;
+            document.getElementById("nextBtn").disabled = currentIndex <= 0;
         }
 
         function loadData(index){
