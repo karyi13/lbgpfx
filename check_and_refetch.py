@@ -12,6 +12,54 @@ from fetch_history_data import ZhituAPIFetcher
 
 # 数据目录
 DATA_DIR = "data/history"
+# 已核查标记文件（记录已经核查且数据确实为0的日期）
+CHECKED_MARKER_FILE = "data/.checked_dates.json"
+
+
+def load_checked_markers():
+    """
+    加载已核查标记
+
+    Returns:
+        dict: {date: reason} 格式，reason说明为什么跳过（如"跌停接口404"）
+    """
+    if os.path.exists(CHECKED_MARKER_FILE):
+        try:
+            with open(CHECKED_MARKER_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"警告: 无法加载标记文件: {e}")
+    return {}
+
+
+def save_checked_markers(markers):
+    """
+    保存已核查标记
+
+    Args:
+        markers: {date: reason} 字典
+    """
+    try:
+        # 确保目录存在
+        os.makedirs(os.path.dirname(CHECKED_MARKER_FILE), exist_ok=True)
+        with open(CHECKED_MARKER_FILE, 'w', encoding='utf-8') as f:
+            json.dump(markers, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"警告: 无法保存标记文件: {e}")
+
+
+def mark_date_checked(date, reason):
+    """
+    标记日期为已核查
+
+    Args:
+        date: 日期字符串
+        reason: 标记原因（如"跌停接口404"）
+    """
+    markers = load_checked_markers()
+    markers[date] = reason
+    save_checked_markers(markers)
+    print(f"  [标记] {date} 已标记为: {reason}")
 
 
 def check_and_refetch_data():
@@ -22,6 +70,9 @@ def check_and_refetch_data():
     if not os.path.exists(DATA_DIR):
         print(f"错误: 数据目录不存在: {DATA_DIR}")
         return
+
+    # 加载已核查标记
+    checked_dates = load_checked_markers()
 
     # 获取所有日期目录
     limit_up_dir = os.path.join(DATA_DIR, "limit_up")
@@ -45,7 +96,7 @@ def check_and_refetch_data():
 
     # 需要重新获取的日期列表
     dates_to_refetch = []
-    stats = {'total': 0, 'to_refetch': 0, 'already_complete': 0}
+    stats = {'total': 0, 'to_refetch': 0, 'already_complete': 0, 'skipped_checked': 0}
 
     print(f"=" * 60)
     print(f"数据完整性检查")
@@ -53,6 +104,12 @@ def check_and_refetch_data():
 
     # 检查每个日期的数据完整性
     for date in sorted(dates_with_data):
+        # 跳过已核查标记的日期
+        if date in checked_dates:
+            stats['skipped_checked'] += 1
+            print(f"[{date}] 已核查过，跳过 (标记: {checked_dates[date]})")
+            continue
+
         stats['total'] += 1
 
         limit_up_file = os.path.join(limit_up_dir, f"{date}.json")
@@ -119,6 +176,7 @@ def check_and_refetch_data():
     print(f"总检查日期: {stats['total']}天")
     print(f"数据完整: {stats['already_complete']}天")
     print(f"需要重取: {stats['to_refetch']}天")
+    print(f"跳过已核查: {stats['skipped_checked']}天")
 
     if dates_to_refetch:
         print(f"\n需要重新获取的日期: {', '.join(dates_to_refetch)}")
@@ -151,9 +209,14 @@ def refetch_data(dates_to_refetch):
 
     success_count = 0
     fail_count = 0
+    still_failed_dates = []  # 记录仍然失败的日期
 
     for i, date in enumerate(dates_to_refetch, 1):
         print(f"\n[{i}/{len(dates_to_refetch)}] {date}")
+
+        limit_up_count = 0
+        limit_down_count = 0
+        explode_count = 0
 
         # 获取涨停
         print("  - 涨停股池:", end=" ")
@@ -163,10 +226,9 @@ def refetch_data(dates_to_refetch):
             filename = f"{DATA_DIR}/limit_up/{date}.json"
             with open(filename, 'w', encoding='utf-8') as f:
                 json.dump({"date": date, "count": len(limit_up), "data": limit_up}, f, ensure_ascii=False)
-            success_count += 1
+            limit_up_count = len(limit_up)
         else:
             print("无数据 [FAIL]")
-            fail_count += 1
 
         # 请求间隔
         from time import sleep
@@ -180,8 +242,11 @@ def refetch_data(dates_to_refetch):
             filename = f"{DATA_DIR}/limit_down/{date}.json"
             with open(filename, 'w', encoding='utf-8') as f:
                 json.dump({"date": date, "count": len(limit_down), "data": limit_down}, f, ensure_ascii=False)
+            limit_down_count = len(limit_down)
         else:
             print("无数据 [FAIL]")
+            # 明确记录为0
+            limit_down_count = 0
 
         sleep(0.2)
 
@@ -193,10 +258,25 @@ def refetch_data(dates_to_refetch):
             filename = f"{DATA_DIR}/explode/{date}.json"
             with open(filename, 'w', encoding='utf-8') as f:
                 json.dump({"date": date, "count": len(explode), "data": explode}, f, ensure_ascii=False)
+            explode_count = len(explode)
         else:
             print("无数据 [FAIL]")
+            # 明确记录为0
+            explode_count = 0
 
         sleep(0.2)
+
+        # 判断是否仍有问题：如果任何一个池的数据为0，就视为失败
+        has_issue = (limit_up_count == 0 or limit_down_count == 0 or explode_count == 0)
+
+        if not has_issue:
+            success_count += 1
+        else:
+            fail_count += 1
+            still_failed_dates.append(date)
+
+        # DEBUG: 打印判断结果（可删除）
+        # print(f"    调试: LU={limit_up_count}, LD={limit_down_count}, EX={explode_count} -> has_issue={has_issue}")
 
     # 输出结果
     print(f"\n{'=' * 60}")
@@ -206,6 +286,69 @@ def refetch_data(dates_to_refetch):
     print(f"失败: {fail_count}天")
     print(f"{'=' * 60}")
 
+    # 标记仍然失败的日期（下次不再核查）
+    if still_failed_dates:
+        print("\n以下日期仍然无法获取完整数据，将被标记为'已确认无数据'以免重复核查:")
+        markers_to_save = {}  # 收集每个日期的具体失败原因
+        for date in still_failed_dates:
+            # 分析失败原因
+            marker_reason = "接口无数据"
+
+            # 尝试读取该日期的文件判断哪些接口失败
+            limit_up_file = os.path.join(DATA_DIR, "limit_up", f"{date}.json")
+            limit_down_file = os.path.join(DATA_DIR, "limit_down", f"{date}.json")
+            explode_file = os.path.join(DATA_DIR, "explode", f"{date}.json")
+
+            issues = []
+            if os.path.exists(limit_up_file):
+                try:
+                    with open(limit_up_file, 'r') as f:
+                        data = json.load(f)
+                        if data.get('count', 0) == 0:
+                            issues.append("涨停为0")
+                except:
+                    issues.append("涨停文件损坏")
+            else:
+                issues.append("涨停缺失")
+
+            if os.path.exists(limit_down_file):
+                try:
+                    with open(limit_down_file, 'r') as f:
+                        data = json.load(f)
+                        if data.get('count', 0) == 0:
+                            issues.append("跌停为0")
+                except:
+                    issues.append("跌停文件损坏")
+            else:
+                issues.append("跌停缺失")
+
+            if os.path.exists(explode_file):
+                try:
+                    with open(explode_file, 'r') as f:
+                        data = json.load(f)
+                        if data.get('count', 0) == 0:
+                            issues.append("炸板为0")
+                except:
+                    issues.append("炸板文件损坏")
+            else:
+                issues.append("炸板缺失")
+
+            if issues:
+                marker_reason = " | ".join(issues)
+
+            print(f"  - {date}: {marker_reason}")
+            markers_to_save[date] = marker_reason
+
+        # 询问是否标记
+        response = input("\n是否将这些日期标记为'已确认无数据'以免下次重复核查? (Y/n): ").strip().lower()
+        if response != 'n':
+            markers = load_checked_markers()
+            markers.update(markers_to_save)  # 批量添加，保留已有的其他标记
+            save_checked_markers(markers)
+            print(f"✓ 已标记 {len(markers_to_save)} 个日期，下次将自动跳过")
+        else:
+            print("未标记，下次仍会核查")
+
 
 def check_specific_date(date_str):
     """
@@ -214,6 +357,16 @@ def check_specific_date(date_str):
     Args:
         date_str: 日期字符串 (yyyy-MM-dd)
     """
+    # 检查是否已标记
+    checked_dates = load_checked_markers()
+    if date_str in checked_dates:
+        print(f"=" * 60)
+        print(f"检查日期: {date_str}")
+        print(f"=" * 60)
+        print(f"该日期已标记为: {checked_dates[date_str]}")
+        print("跳过检查。如需强制检查，请先删除标记文件或使用其他日期。")
+        return True  # 视为"完整"以简化返回
+
     limit_up_file = os.path.join(DATA_DIR, "limit_up", f"{date_str}.json")
     limit_down_file = os.path.join(DATA_DIR, "limit_down", f"{date_str}.json")
     explode_file = os.path.join(DATA_DIR, "explode", f"{date_str}.json")

@@ -37,9 +37,9 @@
         .stock-code { color: #8892b0; font-size: 12px; }
         .lbc-badge { background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; margin-left: 8px; }
         .stock-info { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
-        .info-pill { background: rgba(255,255,255,0.05); padding: 6px 10px; border-radius: 6px; }
-        .info-label { color: #8892b0; font-size: 11px; }
-        .info-value { color: #fff; font-size: 13px; font-weight: 600; }
+        .info-pill { background: rgba(255,255,255,0.05); padding: 8px 6px; border-radius: 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 45px; justify-content: center; min-width: 60px; }
+        .info-label { color: #8892b0; font-size: 11px; line-height: 1.2; text-align: center; white-space: nowrap; }
+        .info-value { color: #fff; font-size: 13px; font-weight: 600; line-height: 1.2; text-align: center; white-space: nowrap; }
         .stock-footer { margin-top: 10px; display: flex; justify-content: space-between; font-size: 11px; }
         .industry { color: #8892b0; }
         .stock-time { color: #f5576c; }
@@ -139,23 +139,12 @@
                 const stocks=lad[k];
                 html+="<div class='tier'><div class='tier-header'><span class='tier-title'>"+k+"板</span><span class='tier-count'>"+stocks.length+"只</span></div><div class='tier-content'>";
                 stocks.forEach(s=>{
-                    html+="<div class='stock-card' data-code='"+s.dm+"' data-name='"+s.mc+"'><div><span class='stock-name'>"+s.mc+"</span> <span class='stock-code'>"+s.dm+"</span><span class='lbc-badge'>"+(s.lbc||1)+"板</span></div><div class='stock-info'><div class='info-pill'><span class='info-label'>价格</span><span class='info-value'>"+(s.p?s.p.toFixed(2):"-")+"</span></div><div class='info-pill'><span class='info-label'>涨幅</span><span class='info-value'>"+(s.zf?s.zf.toFixed(2):"-")+"%</span></div><div class='info-pill'><span class='info-label'>换手</span><span class='info-value'>"+(s.hs?s.hs.toFixed(2):"-")+"%</span></div><div class='info-pill'><span class='info-label'>成交</span><span class='info-value'>"+(s.cje?(s.cje/10000).toFixed(0)+"万":"-")+"</span></div></div><div class='stock-info'><div class='info-pill'><span class='info-label'>首封</span><span class='info-value'>"+fmtTime(s.fbt)+"</span></div><div class='info-pill'><span class='info-label'>末封</span><span class='info-value'>"+fmtTime(s.lbt)+"</span></div><div class='info-pill'><span class='info-label'>封板额</span><span class='info-value'>"+(s.zj?(s.zj/10000).toFixed(0)+"万":"-")+"</span></div><div class='info-pill'><span class='info-label'>流通值</span><span class='info-value'>"+(s.lt?(s.lt/100000000).toFixed(0)+"亿":"-")+"</span></div></div><div class='stock-footer'><span class='industry'>"+(s.hy||"-")+"</span><span class='stock-time'>"+(s.zbc!=undefined? s.zbc+"炸":"-")+"</span></div></div>";
+                    html+="<div class='stock-card'><div><span class='stock-name'>"+s.mc+"</span> <span class='stock-code'>"+s.dm+"</span><span class='lbc-badge'>"+(s.lbc||1)+"板</span></div><div class='stock-info'><div class='info-pill'><span class='info-label'>价格</span><span class='info-value'>"+(s.p?s.p.toFixed(2):"-")+"</span></div><div class='info-pill'><span class='info-label'>涨幅</span><span class='info-value'>"+(s.zf?s.zf.toFixed(2):"-")+"%</span></div><div class='info-pill'><span class='info-label'>换手</span><span class='info-value'>"+(s.hs?s.hs.toFixed(2):"-")+"%</span></div><div class='info-pill'><span class='info-label'>成交</span><span class='info-value'>"+(s.cje?(s.cje/10000).toFixed(0)+"万":"-")+"</span></div></div><div class='stock-info'><div class='info-pill'><span class='info-label'>首封</span><span class='info-value'>"+fmtTime(s.fbt)+"</span></div><div class='info-pill'><span class='info-label'>末封</span><span class='info-value'>"+fmtTime(s.lbt)+"</span></div><div class='info-pill'><span class='info-label'>封板额</span><span class='info-value'>"+(s.zj?(s.zj/10000).toFixed(0)+"万":"-")+"</span></div><div class='info-pill'><span class='info-label'>流通值</span><span class='info-value'>"+(s.lt?(s.lt/100000000).toFixed(0)+"亿":"-")+"</span></div></div><div class='stock-footer'><span class='industry'>"+(s.hy||"-")+"</span><span class='stock-time'>"+(s.zbc!=undefined? s.zbc+"炸":"-")+"</span></div></div>";
                 });
                 html+="</div></div>";
             });
             html+="</div>";
             document.getElementById("ladderContent").innerHTML = html;
-
-            // 绑定股票卡片点击事件
-            document.querySelectorAll('.stock-card').forEach(card => {
-                card.addEventListener('click', function() {
-                    const code = this.dataset.code;
-                    const name = this.dataset.name;
-                    if (code) {
-                        window.open('kline.html?code=' + encodeURIComponent(code) + '&name=' + encodeURIComponent(name), '_blank');
-                    }
-                });
-            });
         }
 
         window.onload = init;

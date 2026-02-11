@@ -13,9 +13,12 @@ from typing import List, Dict
 import pandas as pd
 
 
-# API配置
+# API配置 - 多token支持（轮询使用）
 API_CONFIG = {
-    "token": "BA43E6E1-A30D-4FEA-BD23-7B2376FD6114",
+    "tokens": [
+        "BA43E6E1-A30D-4FEA-BD23-7B2376FD6114",
+        "0381DE88-49B9-42D8-BC51-167C4626B7A1",
+    ],
     "base_url": "https://api.zhituapi.com",
     "timeout": 30,
 }
@@ -25,11 +28,59 @@ REQUEST_INTERVAL = 0.2  # 避免频率限制
 
 
 class ZhituAPIFetcher:
-    """智图API数据获取器"""
+    """智图API数据获取器 - 支持多token轮询"""
 
-    def __init__(self, token: str = None):
-        self.token = token or API_CONFIG["token"]
+    def __init__(self, token: str = None, debug: bool = False):
+        self.tokens = API_CONFIG["tokens"]
         self.base_url = API_CONFIG["base_url"]
+        self.debug = debug
+
+        # 如果指定了特定token，则只使用该token
+        if token:
+            self.tokens = [token]
+
+        # token轮询索引
+        self.current_token_index = 0
+
+        # 失效token记录（可选：记录失败的token避免短时间内重试）
+        self.failed_tokens = set()
+
+        # 上一次使用的token（用于错误跟踪）
+        self.last_used_token = None
+
+        # 初始化时打印配置信息
+        if debug:
+            print(f"  [ZhituAPI] 已配置 {len(self.tokens)} 个token，将进行轮询")
+
+    def _get_next_token(self) -> str:
+        """获取下一个可用的token（轮询）"""
+        if not self.tokens:
+            raise ValueError("没有可用的token")
+
+        # 尝试所有token
+        start_index = self.current_token_index
+        for _ in range(len(self.tokens)):
+            token = self.tokens[self.current_token_index]
+            self.current_token_index = (self.current_token_index + 1) % len(self.tokens)
+
+            # 跳过已知失效的token
+            if token in self.failed_tokens:
+                continue
+
+            # 记录本次使用的token
+            self.last_used_token = token
+            if self.debug:
+                print(f"  [ZhituAPI] 使用token: {token[:10]}...")
+            return token
+
+        # 如果所有token都失效，清空失效记录并重试
+        self.failed_tokens.clear()
+        token = self.tokens[start_index]
+        self.current_token_index = (start_index + 1) % len(self.tokens)
+        self.last_used_token = token
+        if self.debug:
+            print(f"  [ZhituAPI] 所有token可能失效，重置并重试: {token[:10]}...")
+        return token
 
     def fetch_limit_up_pool(self, date: str) -> List[Dict]:
         """
@@ -41,7 +92,8 @@ class ZhituAPIFetcher:
         Returns:
             涨停股票列表
         """
-        url = f"{self.base_url}/hs/pool/ztgc/{date}?token={self.token}"
+        token = self._get_next_token()
+        url = f"{self.base_url}/hs/pool/ztgc/{date}?token={token}"
         return self._fetch(url)
 
     def fetch_limit_down_pool(self, date: str) -> List[Dict]:
@@ -54,7 +106,8 @@ class ZhituAPIFetcher:
         Returns:
             跌停股票列表
         """
-        url = f"{self.base_url}/hs/pool/dtgc/{date}?token={self.token}"
+        token = self._get_next_token()
+        url = f"{self.base_url}/hs/pool/dtgc/{date}?token={token}"
         return self._fetch(url)
 
     def fetch_explode_pool(self, date: str) -> List[Dict]:
@@ -67,7 +120,8 @@ class ZhituAPIFetcher:
         Returns:
             炸板股票列表
         """
-        url = f"{self.base_url}/hs/pool/zbgc/{date}?token={self.token}"
+        token = self._get_next_token()
+        url = f"{self.base_url}/hs/pool/zbgc/{date}?token={token}"
         return self._fetch(url)
 
     def _fetch(self, url: str) -> List[Dict]:
@@ -82,6 +136,36 @@ class ZhituAPIFetcher:
         """
         try:
             response = requests.get(url, timeout=API_CONFIG["timeout"])
+
+            # 提取token用于记录失败
+            import urllib.parse
+            parsed = urllib.parse.urlparse(url)
+            params = urllib.parse.parse_qs(parsed.query)
+            token = params.get('token', ['unknown'])[0]
+
+            # 使用last_used_token（如果已设置）来跟踪，更准确
+            tracking_token = self.last_used_token or token
+
+            if response.status_code == 401:
+                msg = f"Token未授权 (401)"
+                print(f"    [失效] {tracking_token[:10]}... - {msg}")
+                self.failed_tokens.add(tracking_token)
+                self.last_used_token = None  # 清除记录
+                return []
+            elif response.status_code == 403:
+                msg = f"禁止访问 (403)"
+                print(f"    [失效] {tracking_token[:10]}... - {msg}")
+                self.failed_tokens.add(tracking_token)
+                self.last_used_token = None
+                return []
+            elif response.status_code == 429:
+                msg = f"请求频率限制 (429)"
+                print(f"    [限流] {tracking_token[:10]}... - {msg}")
+                self.failed_tokens.add(tracking_token)
+                self.last_used_token = None
+                time.sleep(1)  # 遇到限流，等待1秒
+                return []
+
             response.raise_for_status()
 
             data = response.json()
@@ -99,7 +183,8 @@ class ZhituAPIFetcher:
                         return data_field.get("list", [])
                     return []
                 else:
-                    print(f"    请求失败: {data.get('msg', '未知错误')}")
+                    error_msg = data.get('msg', '未知错误')
+                    print(f"    请求失败: {error_msg}")
                     return []
             return []
 
@@ -114,6 +199,8 @@ class ZhituAPIFetcher:
             return []
         except Exception as e:
             print(f"    未知错误: {e}")
+            import traceback
+            traceback.print_exc()
             return []
 
 
@@ -205,6 +292,9 @@ def fetch_two_months_data(start_date: str = None, end_date: str = None, days: in
         if limit_up:
             print(f" {len(limit_up)}只")
             stats["limit_up"] += len(limit_up)
+            # 为每条记录添加日期字段，用于汇总CSV
+            for item in limit_up:
+                item['date'] = date
             all_limit_up.extend(limit_up)
 
             # 保存每日数据
@@ -223,6 +313,9 @@ def fetch_two_months_data(start_date: str = None, end_date: str = None, days: in
         if limit_down:
             print(f" {len(limit_down)}只")
             stats["limit_down"] += len(limit_down)
+            # 为每条记录添加日期字段，用于汇总CSV
+            for item in limit_down:
+                item['date'] = date
             all_limit_down.extend(limit_down)
 
             # 保存每日数据
@@ -240,6 +333,9 @@ def fetch_two_months_data(start_date: str = None, end_date: str = None, days: in
         if explode:
             print(f" {len(explode)}只")
             stats["explode"] += len(explode)
+            # 为每条记录添加日期字段，用于汇总CSV
+            for item in explode:
+                item['date'] = date
             all_explode.extend(explode)
 
             # 保存每日数据
