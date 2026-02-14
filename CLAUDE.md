@@ -212,6 +212,10 @@ python generate_ladder_data.py
 - **Web UI changes**: edit `ladder.html` (CSS in `<style>`, JS in last `<script>` block)
 - **Data transformation**: edit `generate_ladder_data.py` (output format, helper functions)
 - **Token management**: edit `fetch_history_data.py` line 16-19 (API_CONFIG["tokens"])
+- **Market sentiment analysis**:
+  - `simple_sentiment.py` - 核心情绪分析器（不依赖AKShare）
+  - `generate_sentiment_report.py` - 批量生成情绪报告脚本
+  - `market_sentiment.py` - 增强版（含指数/涨跌家数，AKShare依赖，不稳定）
 
 ## Dependencies
 
@@ -241,9 +245,11 @@ Note: Flask and Plotly are listed in `requirements.txt` but not currently used (
     - `BA43E6E1-A30D-4FEA-BD23-7B2376FD6114`
     - `0381DE88-49B9-42D8-BC51-167C4626B7A1`
 
-- **AKShare** (via `akshare` library) - Fallback data source
-  - Used internally for calculating consecutive limit-up days
-  - Not directly called for main pipeline (Zhitu data preferred)
+- **AKShare** (via `akshare` library) - Fallback/Supplementary data source
+  - Used for:
+    - Historical K-line data (calculating consecutive limit-up days)
+    - Market sentiment analysis: index data (`stock_zh_index_hist`), market breadth (`stock_zh_a_rank_em`)
+  - Requires internet connection; has rate limits
 
 ## Data Schema
 

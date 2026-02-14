@@ -4,59 +4,151 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>连板天梯</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); min-height: 100vh; padding: 20px; color: #fff; }
-        .container { max-width: 1400px; margin: 0 auto; }
-        .header { text-align: center; padding: 20px 0 40px; }
-        .header h1 { font-size: 2.5rem; background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .info-bar { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 15px 25px; margin-bottom: 30px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px; border: 1px solid rgba(255,255,255,0.1); }
-        .info-item { display: flex; gap: 8px; }
-        .info-label { color: #8892b0; font-size: 0.9rem; }
-        .info-value { color: #fff; font-weight: 600; font-size: 1.1rem; }
-        .info-value.red { color: #f5576c; }
-        .info-value.green { color: #64ffda; }
-        .info-value.orange { color: #ffb86c; }
-        .controls { background: rgba(255,255,255,0.05); border-radius: 12px; padding: 15px 25px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,0.1); flex-wrap: wrap; }
-        .btn-nav { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 10px 20px; color: #fff; cursor: pointer; transition: all 0.2s; font-size: 14px; }
-        .btn-nav:hover { background: rgba(245,87,108,0.3); border-color: #f5576c; }
-        .btn-nav:disabled { opacity: 0.5; cursor: not-allowed; }
-        .date-select-wrapper { flex: 1; min-width: 180px; }
-        .date-select { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 10px 15px; color: #fff; font-size: 14px; width: 100%; cursor: pointer; }
-        .date-select:focus { outline: none; border-color: #f5576c; }
-        .date-select option { background: #1a1a2e; color: #fff; }
-        .ladder { display: grid; gap: 15px; }
-        .tier { background: rgba(255,255,255,0.05); border-radius: 12px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
-        .tier-header { background: linear-gradient(90deg, rgba(245,87,108,0.2), rgba(240,147,251,0.2)); padding: 12px 20px; display: flex; align-items: center; gap: 10px; }
-        .tier-title { font-size: 1.2rem; font-weight: 700; }
-        .tier-count { margin-left: auto; color: #8892b0; }
-        .tier-content { padding: 15px; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
-        .stock-card { background: rgba(255,255,255,0.03); border-radius: 10px; padding: 15px; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: all 0.2s; }
-        .stock-card:hover { background: rgba(255,255,255,0.05); transform: translateY(-2px); }
-        .stock-name { font-weight: 600; }
-        .stock-code { color: #8892b0; font-size: 12px; }
-        .lbc-badge { background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%); padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; margin-left: 8px; }
-        .stock-info { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
-        .info-pill { background: rgba(255,255,255,0.05); padding: 8px 6px; border-radius: 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 45px; justify-content: center; min-width: 60px; }
-        .info-label { color: #8892b0; font-size: 11px; line-height: 1.2; text-align: center; white-space: nowrap; }
-        .info-value { color: #fff; font-size: 13px; font-weight: 600; line-height: 1.2; text-align: center; white-space: nowrap; }
-        .stock-footer { margin-top: 10px; display: flex; justify-content: space-between; font-size: 11px; }
-        .industry { color: #8892b0; }
-        .stock-time { color: #f5576c; }
-        .empty { color: #8892b0; text-align: center; padding: 40px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: linear-gradient(135deg, #0f0f1a 0%, #1a1a2e 50%, #16213e 100%); min-height: 100vh; padding: 20px; color: #e0e0e0; }
+        .container { max-width: 1600px; margin: 0 auto; }
+
+        /* Header */
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 20px 0 30px; }
+        .header h1 { font-size: 2.2rem; background: linear-gradient(135deg, #ff6b6b 0%, #feca57 50%, #ff6b9d 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: 800; letter-spacing: -0.5px; }
+        .header-actions { display: flex; gap: 10px; }
+        .btn-action { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 10px 16px; color: #fff; cursor: pointer; transition: all 0.2s; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+        .btn-action:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.3); transform: translateY(-1px); }
+        .btn-action:active { transform: translateY(0); }
+
+        /* Controls */
+        .controls { background: rgba(255,255,255,0.05); border-radius: 16px; padding: 16px 24px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; border: 1px solid rgba(255,255,255,0.08); flex-wrap: wrap; }
+        .btn-nav { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 12px 20px; color: #fff; cursor: pointer; transition: all 0.2s; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+        .btn-nav:hover:not(:disabled) { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.25); transform: translateY(-1px); }
+        .btn-nav:disabled { opacity: 0.4; cursor: not-allowed; }
+        .date-select-wrapper { flex: 1; min-width: 200px; }
+        .date-select { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 12px 16px; color: #fff; font-size: 14px; width: 100%; cursor: pointer; transition: all 0.2s; }
+        .date-select:hover { border-color: rgba(255,255,255,0.2); }
+        .date-select:focus { outline: none; border-color: #ff6b6b; box-shadow: 0 0 0 3px rgba(255,107,107,0.15); }
+        .date-select option { background: #1a1a2e; color: #e0e0e0; }
+
+        /* Search */
+        .search-wrapper { flex: 1; min-width: 250px; max-width: 350px; position: relative; }
+        .search-input { width: 100%; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; padding: 12px 16px 12px 40px; color: #fff; font-size: 14px; transition: all 0.2s; }
+        .search-input::placeholder { color: rgba(255,255,255,0.4); }
+        .search-input:hover { border-color: rgba(255,255,255,0.2); }
+        .search-input:focus { outline: none; border-color: #ff6b6b; box-shadow: 0 0 0 3px rgba(255,107,107,0.15); }
+        .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: rgba(255,255,255,0.4); font-size: 16px; }
+
+        /* View Toggle */
+        .view-toggle { display: flex; background: rgba(255,255,255,0.05); border-radius: 10px; padding: 4px; gap: 2px; }
+        .toggle-btn { padding: 8px 16px; border: none; background: transparent; color: rgba(255,255,255,0.6); cursor: pointer; border-radius: 8px; font-size: 13px; transition: all 0.2s; }
+        .toggle-btn.active { background: rgba(255,107,107,0.2); color: #ff6b6b; }
+        .toggle-btn:hover:not(.active) { color: rgba(255,255,255,0.8); }
+
+        /* Info Bar */
+        .info-bar { background: rgba(255,255,255,0.05); border-radius: 16px; padding: 18px 28px; margin-bottom: 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 20px; border: 1px solid rgba(255,255,255,0.08); }
+        .info-item { display: flex; flex-direction: column; gap: 4px; }
+        .info-label { color: rgba(255,255,255,0.5); font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .info-value { color: #fff; font-weight: 700; font-size: 1.3rem; }
+        .info-value.red { color: #ff6b6b; }
+        .info-value.green { color: #51cf66; }
+        .info-value.orange { color: #ff922b; }
+        .info-value.blue { color: #339af0; }
+
+        /* Ladder */
+        .ladder { display: grid; gap: 20px; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Tier */
+        .tier { background: rgba(255,255,255,0.05); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.08); transition: all 0.3s; }
+        .tier:hover { border-color: rgba(255,255,255,0.15); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+        .tier-header { background: linear-gradient(90deg, rgba(255,107,107,0.15), rgba(255,159,67,0.15)); padding: 14px 24px; display: flex; align-items: center; gap: 12px; cursor: pointer; transition: all 0.2s; }
+        .tier-header:hover { background: linear-gradient(90deg, rgba(255,107,107,0.2), rgba(255,159,67,0.2)); }
+        .tier-collapse-icon { transition: transform 0.3s; font-size: 12px; }
+        .tier.collapsed .tier-collapse-icon { transform: rotate(-90deg); }
+        .tier-title { font-size: 1.3rem; font-weight: 800; }
+        .tier-count { margin-left: auto; background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; }
+        .tier.collapsed .tier-content { max-height: 0; padding: 0; overflow: hidden; }
+        .tier-content { padding: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; transition: all 0.3s ease; max-height: 10000px; overflow: visible; }
+
+        /* Stock Card */
+        .stock-card { background: rgba(255,255,255,0.04); border-radius: 14px; padding: 16px; border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+        .stock-card:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.15); transform: translateY(-3px) scale(1.01); box-shadow: 0 8px 20px rgba(0,0,0,0.25); }
+        .stock-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+        .stock-name { font-weight: 700; font-size: 15px; color: #fff; }
+        .stock-code { color: rgba(255,255,255,0.4); font-size: 12px; }
+        .lbc-badge { background: linear-gradient(135deg, #ff6b6b 0%, #ff6b9d 100%); padding: 5px 12px; border-radius: 16px; font-size: 12px; font-weight: 700; margin-left: auto; box-shadow: 0 2px 8px rgba(255,107,107,0.3); }
+        .stock-info { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .info-pill { background: rgba(255,255,255,0.06); padding: 10px 8px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 48px; justify-content: center; }
+        .info-label { color: rgba(255,255,255,0.5); font-size: 11px; line-height: 1.3; text-align: center; }
+        .info-value { color: #fff; font-size: 14px; font-weight: 600; line-height: 1.2; text-align: center; }
+        .stock-footer { margin-top: 12px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.06); }
+        .industry { color: rgba(255,255,255,0.5); font-weight: 500; }
+        .stock-time { color: #ff6b6b; font-weight: 600; }
+
+        /* Compact View */
+        .ladder.compact .stock-info { display: none; }
+        .ladder.compact .stock-card { padding: 12px; }
+        .ladder.compact .tier-content { grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+
+        /* Empty State */
+        .empty { display: flex; flex-direction: column; align-items: center; gap: 16px; color: rgba(255,255,255,0.4); text-align: center; padding: 80px 40px; }
+        .empty-icon { font-size: 64px; opacity: 0.3; }
+
+        /* Loading */
+        .loading { display: flex; justify-content: center; align-items: center; padding: 60px; color: rgba(255,255,255,0.5); }
+        .loading::after { content: ""; animation: spin 1s linear infinite; border: 3px solid rgba(255,255,255,0.1); border-top-color: #ff6b6b; border-radius: 50%; width: 40px; height: 40px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* K线图弹窗 */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 9999; backdrop-filter: blur(4px); }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: #1a1a2e; border-radius: 20px; padding: 24px; max-width: 900px; width: 95%; max-height: 85vh; display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+        .modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+        .modal-title { font-size: 1.5rem; font-weight: 700; background: linear-gradient(135deg, #ff6b6b 0%, #feca57 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .modal-close { background: rgba(255,255,255,0.1); border: none; border-radius: 10px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; color: #fff; cursor: pointer; transition: all 0.2s; font-size: 20px; }
+        .modal-close:hover { background: rgba(255,107,107,0.3); transform: rotate(90deg); }
+        .kline-chart-container { flex: 1; min-height: 500px; background: rgba(0,0,0,0.2); border-radius: 12px; position: relative; }
+        .chart-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(255,255,255,0.5); font-size: 14px; }
+        #klineChart { width: 100%; height: 100%; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header { flex-direction: column; gap: 16px; text-align: center; }
+            .header-actions { justify-content: center; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .btn-nav { justify-content: center; }
+            .info-bar { grid-template-columns: 1fr 1fr; }
+            .tier-content { grid-template-columns: 1fr; }
+            .stock-info { grid-template-columns: repeat(2, 1fr); }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>连板天梯</h1>
+            <div class="header-actions">
+                <button class="btn-action" onclick="expandAllTiers()">展开全部</button>
+                <button class="btn-action" onclick="collapseAllTiers()">收起全部</button>
+            </div>
         </div>
         <div class="controls">
-            <button class="btn-nav" id="prevBtn" onclick="changeDate(1)">◀ 上一日</button>
+            <button class="btn-nav" id="prevBtn" onclick="changeDate(1)">
+                <span>◀</span><span>上一日</span>
+            </button>
             <div class="date-select-wrapper">
                 <select id="dateSelect" class="date-select" onchange="handleChange(this.value)"><option>加载中...</option></select>
             </div>
-            <button class="btn-nav" id="nextBtn" onclick="changeDate(-1)">下一日 ▶</button>
+            <button class="btn-nav" id="nextBtn" onclick="changeDate(-1)">
+                <span>下一日</span><span>▶</span>
+            </button>
+            <div class="search-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="searchInput" class="search-input" placeholder="搜索股票名称或代码..." oninput="filterStocks()">
+            </div>
+            <div class="view-toggle">
+                <button class="toggle-btn active" id="normalViewBtn" onclick="switchView('normal')">完整</button>
+                <button class="toggle-btn" id="compactViewBtn" onclick="switchView('compact')">精简</button>
+            </div>
         </div>
         <div class="info-bar">
             <div class="info-item"><span class="info-label">日期</span><span class="info-value" id="infoDate">-</span></div>
@@ -64,22 +156,200 @@
             <div class="info-item"><span class="info-label">最高连板</span><span class="info-value" id="infoMaxLbc">-</span></div>
             <div class="info-item"><span class="info-label">炸板率</span><span class="info-value orange" id="infoExplodeRate">-</span></div>
             <div class="info-item"><span class="info-label">跌停数</span><span class="info-value green" id="infoDtCount">-</span></div>
+            <div class="info-item"><span class="info-label">显示中</span><span class="info-value blue" id="infoShowing">-</span></div>
         </div>
-        <div id="ladderContent" class="ladder">加载数据中...</div>
+        <div id="ladderContent" class="ladder"><div class="loading"></div></div>
+    </div>
+
+    <!-- K线图弹窗 -->
+    <div class="modal-overlay" id="klineModal" onclick="closeKlineModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <span class="modal-title" id="klineTitle">K线图</span>
+                <button class="modal-close" onclick="closeKlineModal()">×</button>
+            </div>
+            <div class="kline-chart-container">
+                <div class="chart-loading" id="chartLoading">加载中...</div>
+                <div id="klineChart"></div>
+            </div>
+        </div>
+    </div>
     </div>
     <script src="ladder_data.js"></script>
     <script>
         let dates = [];
         let currentIndex = 0;
+        let currentStocks = [];
+        let currentView = 'normal';
+        let allKlineData = null;  // 缓存所有K线数据
+        let klineChart = null;     // ECharts实例
 
         function fmtTime(t){
             if(!t) return "-";
-            // 如果已经包含冒号，直接返回
             if(t.includes(":")) return t;
-            // 如果是6位纯数字，格式化为 HH:MM:SS
             if(t.length>=6) return t.substring(0,2)+":"+t.substring(2,4)+":"+t.substring(4,6);
             return t;
         }
+
+        function normalizeCode(code){
+            if(!code) return code;
+            code = code.replace('.', '');
+            if(code.length >= 6){
+                const prefix = code.substring(0, 6);
+                if(prefix.startsWith('6')) return prefix + '.SH';
+                if(prefix.startsWith('0') || prefix.startsWith('3')) return prefix + '.SZ';
+                if(prefix.startsWith('4') || prefix.startsWith('8')) return prefix + '.BJ';
+            }
+            return code;
+        }
+
+        // K线图相关函数
+        async function showKlineChart(code, name){
+            const modal = document.getElementById('klineModal');
+            const title = document.getElementById('klineTitle');
+            const chartLoading = document.getElementById('chartLoading');
+
+            title.textContent = `${name} (${code})`;
+            chartLoading.style.display = 'block';
+            modal.classList.add('active');
+
+            // 加载K线数据
+            if(!allKlineData){
+                allKlineData = await loadKlineData();
+            }
+
+            // 渲染K线图
+            const klineData = allKlineData[code] || [];
+            if(klineData.length === 0){
+                chartLoading.textContent = '暂无K线数据';
+            }else{
+                chartLoading.style.display = 'none';
+                renderKlineChart(klineData, name);
+            }
+        }
+
+        async function loadKlineData(){
+            try{
+                const response = await fetch('/api/kline');
+                const result = await response.json();
+                if(result.success){
+                    return result.data;
+                }else{
+                    console.error('加载K线数据失败:', result.error);
+                    return {};
+                }
+            }catch(e){
+                console.error('加载K线数据异常:', e);
+                return {};
+            }
+        }
+
+        function renderKlineChart(data, name){
+            // 准备ECharts数据
+            const dates = data.map(d => d.date);
+            const values = data.map(d => [d.open, d.close, d.low, d.high]);
+            const volumes = data.map(d => {
+                const prev = d.open > d.close ? 1 : -1;
+                return prev * d.volume;
+            });
+
+            // 初始化图表
+            const container = document.getElementById('klineChart');
+            klineChart = echarts.init(container);
+
+            const option = {
+                title: {
+                    left: 'center',
+                    text: name,
+                    textStyle: { color: '#e0e0e0' }
+                },
+                tooltip: {
+                    trigger: 'axis',
+                    axisPointer: { type: 'cross' },
+                    backgroundColor: 'rgba(26, 26, 46, 0.95)',
+                    borderColor: 'rgba(255, 107, 107, 0.5)',
+                    textStyle: { color: '#fff' }
+                },
+                grid: [
+                    { left: '8%', right: '8%', top: '10%', height: '55%' },
+                    { left: '8%', right: '8%', top: '70%', height: '20%' }
+                ],
+                xAxis: [
+                    {
+                        type: 'category',
+                        data: dates,
+                        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+                        axisLabel: { color: 'rgba(255,255,255,0.6)' }
+                    },
+                    {
+                        type: 'category',
+                        gridIndex: 1,
+                        data: dates,
+                        axisLabel: { show: false }
+                    }
+                ],
+                yAxis: [
+                    {
+                        scale: true,
+                        splitLine: { lineStyle: { color: 'rgba(255,255,255,0.05)' } },
+                        axisLine: { lineStyle: { color: 'rgba(255,255,255,0.1)' } },
+                        axisLabel: { color: 'rgba(255,255,255,0.6)' }
+                    },
+                    {
+                        scale: true,
+                        gridIndex: 1,
+                        splitLine: { show: false },
+                        axisLabel: { color: 'rgba(255,255,255,0.6)' }
+                    }
+                ],
+                dataZoom: [
+                    { type: 'inside', xAxisIndex: [0, 1], start: 70, end: 100 },
+                    { show: true, xAxisIndex: [0, 1], type: 'slider', top: '92%', start: 70, end: 100 }
+                ],
+                series: [
+                    {
+                        name: 'K线',
+                        type: 'candlestick',
+                        data: values,
+                        itemStyle: {
+                            color: '#ff6b6b',
+                            color0: '#00d26a',
+                            borderColor: '#ff6b6b',
+                            borderColor0: '#00d26a'
+                        }
+                    },
+                    {
+                        name: '成交量',
+                        type: 'bar',
+                        xAxisIndex: 1,
+                        yAxisIndex: 1,
+                        data: volumes,
+                        itemStyle: {
+                            color: function(params){
+                                return params.value > 0 ? 'rgba(255,107,107,0.8)' : 'rgba(0,210,106,0.8)';
+                            }
+                        }
+                    }
+                ]
+            };
+
+            klineChart.setOption(option);
+        }
+
+        function closeKlineModal(e){
+            if(e && e.target !== document.getElementById('klineModal')) return;
+            const modal = document.getElementById('klineModal');
+            modal.classList.remove('active');
+            if(klineChart){
+                klineChart.dispose();
+                klineChart = null;
+            }
+        }
+
+        // ESC键关闭弹窗
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'Escape') closeKlineModal();
+        });
 
         function init(){
             dates = getDateList();
@@ -94,6 +364,7 @@
 
         function handleChange(index) {
             currentIndex = parseInt(index);
+            document.getElementById("searchInput").value = "";
             loadData(currentIndex);
             updateNavButtons();
         }
@@ -102,6 +373,7 @@
             currentIndex += delta;
             if(currentIndex < 0) currentIndex = 0;
             if(currentIndex >= dates.length) currentIndex = dates.length - 1;
+            document.getElementById("searchInput").value = "";
             loadData(currentIndex);
             updateNavButtons();
         }
@@ -111,11 +383,63 @@
             document.getElementById("nextBtn").disabled = currentIndex <= 0;
         }
 
+        function switchView(view) {
+            currentView = view;
+            document.getElementById("normalViewBtn").classList.toggle("active", view === 'normal');
+            document.getElementById("compactViewBtn").classList.toggle("active", view === 'compact');
+            document.getElementById("ladderContent").classList.toggle("compact", view === 'compact');
+        }
+
+        function filterStocks() {
+            const query = document.getElementById("searchInput").value.toLowerCase().trim();
+            const allCards = document.querySelectorAll(".stock-card");
+            let showingCount = 0;
+
+            allCards.forEach(card => {
+                const hasMatch = query === "" ||
+                    card.querySelector(".stock-name").textContent.toLowerCase().includes(query) ||
+                    card.querySelector(".stock-code").textContent.toLowerCase().includes(query);
+
+                card.style.display = hasMatch ? "" : "none";
+                if(hasMatch) showingCount++;
+            });
+
+            // Hide empty tiers
+            const tiers = document.querySelectorAll(".tier");
+            tiers.forEach(tier => {
+                const cards = tier.querySelectorAll(".stock-card");
+                const hasVisibleCards = Array.from(cards).some(card => card.style.display !== "none");
+                tier.style.display = hasVisibleCards ? "" : "none";
+            });
+
+            document.getElementById("infoShowing").textContent = query ? `${showingCount}只` : "-";
+        }
+
+        function expandAllTiers() {
+            document.querySelectorAll(".tier").forEach(tier => {
+                tier.classList.remove("collapsed");
+            });
+        }
+
+        function collapseAllTiers() {
+            document.querySelectorAll(".tier").forEach(tier => {
+                tier.classList.add("collapsed");
+            });
+        }
+
+        function toggleTier(tierId) {
+            const tier = document.getElementById(tierId);
+            if(tier) {
+                tier.classList.toggle("collapsed");
+            }
+        }
+
         function loadData(index){
             const date = dates[index];
             const lu = getLimitUpData(date);
             const ld = getLimitDownData(date);
             const ex = getExplodeData(date);
+            currentStocks = lu;
 
             document.getElementById("dateSelect").value = index;
             document.getElementById("infoDate").textContent = date;
@@ -125,9 +449,10 @@
             const tot = lu.length + ex.length;
             document.getElementById("infoExplodeRate").textContent = tot ? ((ex.length/tot)*100).toFixed(1)+"%" : "0%";
             document.getElementById("infoDtCount").textContent = ld.length;
+            document.getElementById("infoShowing").textContent = "-";
 
             if(!lu.length){
-                document.getElementById("ladderContent").innerHTML = "<div class='empty'>该日期暂无涨停数据</div>";
+                document.getElementById("ladderContent").innerHTML = "<div class='empty'><div class='empty-icon'>📊</div><div>该日期暂无涨停数据</div></div>";
                 return;
             }
 
@@ -137,9 +462,11 @@
             let html="<div class='ladder'>";
             ks.forEach(k=>{
                 const stocks=lad[k];
-                html+="<div class='tier'><div class='tier-header'><span class='tier-title'>"+k+"板</span><span class='tier-count'>"+stocks.length+"只</span></div><div class='tier-content'>";
+                const tierId = 'tier-' + k;
+                html+="<div class='tier' id='"+tierId+"'><div class='tier-header' onclick='toggleTier(\""+tierId+"\")'><span class='tier-collapse-icon'>▼</span><span class='tier-title'>"+k+"板</span><span class='tier-count'>"+stocks.length+"只</span></div><div class='tier-content'>";
                 stocks.forEach(s=>{
-                    html+="<div class='stock-card'><div><span class='stock-name'>"+s.mc+"</span> <span class='stock-code'>"+s.dm+"</span><span class='lbc-badge'>"+(s.lbc||1)+"板</span></div><div class='stock-info'><div class='info-pill'><span class='info-label'>价格</span><span class='info-value'>"+(s.p?s.p.toFixed(2):"-")+"</span></div><div class='info-pill'><span class='info-label'>涨幅</span><span class='info-value'>"+(s.zf?s.zf.toFixed(2):"-")+"%</span></div><div class='info-pill'><span class='info-label'>换手</span><span class='info-value'>"+(s.hs?s.hs.toFixed(2):"-")+"%</span></div><div class='info-pill'><span class='info-label'>成交</span><span class='info-value'>"+(s.cje?(s.cje/10000).toFixed(0)+"万":"-")+"</span></div></div><div class='stock-info'><div class='info-pill'><span class='info-label'>首封</span><span class='info-value'>"+fmtTime(s.fbt)+"</span></div><div class='info-pill'><span class='info-label'>末封</span><span class='info-value'>"+fmtTime(s.lbt)+"</span></div><div class='info-pill'><span class='info-label'>封板额</span><span class='info-value'>"+(s.zj?(s.zj/10000).toFixed(0)+"万":"-")+"</span></div><div class='info-pill'><span class='info-label'>流通值</span><span class='info-value'>"+(s.lt?(s.lt/100000000).toFixed(0)+"亿":"-")+"</span></div></div><div class='stock-footer'><span class='industry'>"+(s.hy||"-")+"</span><span class='stock-time'>"+(s.zbc!=undefined? s.zbc+"炸":"-")+"</span></div></div>";
+                    const stockCode = normalizeCode(s.dm);
+                    html+="<div class='stock-card' onclick='showKlineChart(\""+stockCode+"\",\""+s.mc+"\")'><div class='stock-header'><span class='stock-name'>"+s.mc+"</span> <span class='stock-code'>"+s.dm+"</span><span class='lbc-badge'>"+(s.lbc||1)+"板</span></div><div class='stock-info'><div class='info-pill'><span class='info-label'>价格</span><span class='info-value'>"+(s.p?s.p.toFixed(2):"-")+"</span></div><div class='info-pill'><span class='info-label'>涨幅</span><span class='info-value'>"+(s.zf?s.zf.toFixed(2):"-")+"%</span></div><div class='info-pill'><span class='info-label'>换手</span><span class='info-value'>"+(s.hs?s.hs.toFixed(2):"-")+"%</span></div><div class='info-pill'><span class='info-label'>成交</span><span class='info-value'>"+(s.cje?(s.cje/10000).toFixed(0)+"万":"-")+"</span></div></div><div class='stock-info'><div class='info-pill'><span class='info-label'>首封</span><span class='info-value'>"+fmtTime(s.fbt)+"</span></div><div class='info-pill'><span class='info-label'>末封</span><span class='info-value'>"+fmtTime(s.lbt)+"</span></div><div class='info-pill'><span class='info-label'>封板额</span><span class='info-value'>"+(s.zj?(s.zj/10000).toFixed(0)+"万":"-")+"</span></div><div class='info-pill'><span class='info-label'>流通值</span><span class='info-value'>"+(s.lt?(s.lt/100000000).toFixed(0)+"亿":"-")+"</span></div></div><div class='stock-footer'><span class='industry'>"+(s.hy||"-")+"</span><span class='stock-time'>"+(s.zbc!=undefined? s.zbc+"炸":"-")+"</span></div></div>";
                 });
                 html+="</div></div>";
             });
